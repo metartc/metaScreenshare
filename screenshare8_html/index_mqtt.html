@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>metaScreenshare8</title>
+    <meta charset="utf-8">
+    <style>
+        body{
+            padding-top: 30px;
+        }
+        .videofull{
+			width= 100%; height=100%; object-fit: fill;
+		}
+    </style>
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"/>
+       <script type="text/javascript" src="js/mqtt.min.js"></script>
+    <script type="text/javascript" src="js/yangdef.js"></script>
+ 
+	<script type="text/javascript" src="js/yangmqtt.js"></script>
+    <script type="text/javascript" src="js/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript" src="js/adapter-7.4.0.min.js"></script>
+	<script type="text/javascript" src="js/ipc.mqtt.sdk.js"></script>
+    <script type="text/javascript" src="js/winlin.utility.js"></script>
+    <script type="text/javascript" src="js/srs.page.js"></script>
+  <script type="text/javascript" src="js/screen.js"></script>
+  
+</head>
+<body>
+<div class="container" width="100%" height="100%">
+<table>
+<tr><td width="50%">
+	<label id="mqtt_label">mqtt设置 </label>
+	<div id="div_mqtt">		  
+	   IP:
+        <input type="text" style="width:90px;border:none; border-bottom:1px solid #000;" id="mqtt_ip"  value="192.168.0.104">
+         Port:
+          <input type="text" style="width:30px;border:none; border-bottom:1px solid #000;" id="mqtt_port"  value="8083">
+           <input type="checkbox" id="chk_wss" class="btn btn-primary">Wss</input>
+	</div>
+</td>
+<td width="50%">
+
+<label id="url_label">STUN SERVER</label>
+
+	
+		<div id="div_stun"> 		
+				 <input type="text" id="txt_stun" style="width:300px;border:none; border-bottom:1px solid #000;"  value="stun:192.168.0.104:3478">
+		</div>
+</td>
+</tr>
+</table>
+
+	
+    <div class="form-inline"> 
+        <button class="btn btn-primary" id="btn_play">开始控制</button>
+        <button class="btn btn-primary" id="btn_play_stop">停止控制</button>
+ 	<button class="btn btn-primary" id="btn_altdel">ALT+CRTL+DEL</button>
+    </div>
+    <br>
+
+    <video id="rtc_media_player" width="100%" height="100%" autoplay></video>   
+</div>
+<script type="text/javascript">
+//
+// Copyright (c) 2019-2022 yanggaofeng
+//
+//div_url.style.display='none';
+window.onbeforeunload=function(e){    
+	　	if(yang_isPlaying){
+				console.log("close peer uid "+yang_uid);
+				sendMqttMsg(Yang_Request_Close,null,null);
+		} 
+　
+} 
+
+
+
+function yang_get_sfuUrl(){
+		//var yurl=yang_url_parse($("#txt_url").val());
+		// var yport=yurl.port;
+       // if(yang_mediaServerType==Yang_ConnectType_Zlm&&yport==1985) yport=80;
+		//return "webrtc://"+yurl.server+":"+yport+"/"+yurl.app+"/"+yurl.stream;
+		return "webrtc://";
+}
+$(function(){
+	
+	$('#datachannel_form').hide();
+     // Global handler to do cleanup when replaying.
+     $('#rtc_media_player').show();
+     var requestConnect=function(){
+	 yang_iceServer =[
+			{
+				urls: [$("#txt_stun").val()]
+			}
+			/**, {
+				urls: ["turn:10.42.0.1:3478"],
+				username: "metaRTC",
+				credential: "metaRTC"
+			}**/
+		];
+		//console.log("yang_mediaServerType===>"+yang_mediaServerType);
+		  //var mstype=$("input[name='meidaServer']:checked").val();
+		 // setMediaServer(parseInt(mstype));
+		
+		  yang_url = yang_get_sfuUrl();
+		  //console.log("yang_url:"+yang_url);
+		 // console.log("yang_mediaServerType=="+yang_mediaServerType);
+		 // console.log("yang_url=="+yang_url);
+		 if(yang_client&&yang_client.isConnected()){			
+			sendLoginMsg();
+		 }else{
+			yang_mqtt_connect(mqtt_ip.value,parseInt(mqtt_port.value),yang_clientId);
+		}
+	}	
+	
+    var startPlay = function() {     
+		
+        // Close PC when user replay.
+        if (sdk) {
+		
+            sdk.close();
+        }
+
+        sdk = new SrsRtcPlayerAsync();
+
+        // https://webrtc.org/getting-started/remote-streams
+        $('#rtc_media_player').prop('srcObject', sdk.stream);
+            var url = $("#txt_url").val();
+       // parse_webrtc(url);
+        sdk.play(url).then(function(session){
+			 console.log("play url ",$("#txt_url").val());
+			 $('#datachannel_form').show();
+        }).catch(function (reason) {
+            sdk.close();
+ 
+        });
+    };
+
+
+    $("#btn_play").click(function() {
+        $('#rtc_media_player').prop('muted', false);
+       // yang_sfu_isHtpps=chk_https.checked?true:false;
+
+        yang_mqtt_isWss=chk_wss.checked?true:false;
+    
+		if(yang_isPlaying){
+				console.log("close peer uid "+yang_uid);
+				sendMqttMsg(Yang_Request_Close,null,null);
+		}
+        yang_isPlaying=true;
+        requestConnect();
+    });
+    
+     $("#btn_altdel").click(function() {
+       sendAltMsg();
+    });    
+
+    $("#btn_play_stop").click(function() {
+        $('#rtc_media_player').prop('muted', false);
+        //console.log("close uid:",yang_uid);
+        sendMqttMsg(Yang_Request_Close,null,null);
+     // yang_mqtt_disconnect();
+     yang_isPlaying=false;
+      sdk.close();
+      
+    });
+    
+    
+    $("input[id=meidaServer1]").click(function () {
+		setMediaServer(0);
+	});
+	
+	 $("input[id=meidaServer2]").click(function () {
+		setMediaServer(1);
+	});
+	
+	  $("input[id=meidaServer3]").click(function () {
+		setMediaServer(2);
+	});
+    
+});
+
+function yang_answerPlay(remoteSdp){
+		if (sdk) {
+            sdk.close();
+        }
+     
+        sdk = new SrsRtcPlayerAsync();       
+ 
+        sdk.answerPlay(remoteSdp);
+	}
+	
+function yang_startPlayP2p(){
+		if (sdk) {
+            sdk.close();
+        }
+        sdk = new SrsRtcPlayerAsync();
+        $('#rtc_media_player').prop('srcObject', sdk.stream);
+        sdk.playP2p();
+}
+
+function yang_startPlaySrs(){
+		if (sdk) {
+            sdk.close();
+        }
+        sdk = new SrsRtcPlayerAsync();
+
+        // https://webrtc.org/getting-started/remote-streams
+        $('#rtc_media_player').prop('srcObject', sdk.stream);
+            var url = $("#txt_url").val();
+       // parse_webrtc(url);
+        sdk.playSrs(url).then(function(session){
+			 console.log("play url ",$("#txt_url").val());
+			 $('#datachannel_form').show();
+        }).catch(function (reason) {
+            sdk.close();
+ 
+        });
+}
+
+function yang_startPlayZlm(){
+		if (sdk) {
+            sdk.close();
+        }
+        sdk = new SrsRtcPlayerAsync();
+
+        // https://webrtc.org/getting-started/remote-streams
+        $('#rtc_media_player').prop('srcObject', sdk.stream);
+            var url = $("#txt_url").val();
+       // parse_webrtc(url);
+        sdk.playZlm(url).then(function(session){
+			 console.log("play url ",$("#txt_url").val());
+			 $('#datachannel_form').show();
+        }).catch(function (reason) {
+            sdk.close();
+ 
+        });
+}	
+
+function sendAltMsg_mqtt(){
+	var msg="altctrldelkey,0,0,0";
+		console.log("send data:"+msg);
+		sendDataMsg(msg); //将消息发送到服务端
+}
+	
+
+
+function sendevent_mqtt( type,  direction,  x,  y){
+	if(direction == "key")
+    {
+		var msg=type+","+direction+","+x+","+y;
+		//console.log("send data:"+msg);
+		sendDataMsg(msg); //将消息发送到服务端
+        return;
+    }
+    	var msg=type+","+direction+","+x+","+y;
+		//console.log("send data:"+msg);
+		sendDataMsg(msg); //将消息发送到服务端
+    
+}
+
+function sendChannelMsg(str){
+	   if (!datachannel) return;     
+       if(datachannel.readyState == "open") datachannel.send(str);
+}	
+
+function sendAltMsg(){
+	var msg="altctrldelkey,0,0,0";
+		console.log("send data:"+msg);
+		sendChannelMsg(msg); //将消息发送到服务端
+}
+	
+
+function sendevent( type,  direction,  x,  y){
+	if(direction == "key")
+    {
+		var msg=type+","+direction+","+x+","+y;
+		//console.log("send data:"+msg);
+		sendChannelMsg(msg); //将消息发送到服务端
+        return;
+    }
+    	var msg=type+","+direction+","+x+","+y;
+		//console.log("send data:"+msg);
+		sendChannelMsg(msg); //将消息发送到服务端
+    
+}
+
+var mqttIsHide=false;
+var urlIsHide=false;
+function hidediv(num){
+	if(num==1){
+		mqttIsHide=!mqttIsHide;
+		 div_mqtt.style.display=mqttIsHide?'block':'none';
+	 }
+	if(num==2){
+		urlIsHide=!urlIsHide;
+		  div_sfu.style.display=urlIsHide?'block':'none';
+	 }
+}
+function yang_mqtt_reconnect(){
+yang_mqtt_connect(mqtt_ip.value,parseInt(mqtt_port.value),yang_clientId);	
+}
+
+ function mustNumberKey(evt) {
+	var asciiCode = (evt.which) ? evt.which : evt.keyCode;
+	if (asciiCode > 31 && (asciiCode < 48 || asciiCode > 57))
+		return false;
+	return true;
+}
+        
+        initEvent();
+        
+</script>
+</body>
+</html>
