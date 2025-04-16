@@ -2,6 +2,14 @@
 
 windows remote control
 
+# Featurne
+
+- P2P通信
+
+- 无显示器应用场景
+
+- 浏览器/客户端等webRTC终端访问
+
 # Signaling Server
 
 mqtt:[mosquitto download]([Download | Eclipse Mosquitto](https://mosquitto.org/download/))
