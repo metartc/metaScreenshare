@@ -1,7 +1,7 @@
 # metaScreenshare
 windows remote control
-# config file
-
+# config file  
+desktop_config.ini   
 [video]  
 videoEncHwType=0  
    
