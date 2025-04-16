@@ -1,6 +1,6 @@
 # metaScreenshare
 
-windows remote control
+An open-source webRTC remote desktop application
 
 # Feature
 
