@@ -2,7 +2,7 @@
 
 windows remote control
 
-# Featurne
+# Feature
 
 - P2P通信
 
